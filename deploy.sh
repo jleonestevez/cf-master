@@ -9,4 +9,3 @@ aws cloudformation deploy \
 	--region $(cat .env | grep Region= | cut -d '=' -f2) \
 
 
-aws ec2 --region "<region> download-key-pair" --key-name "MyKey" --query 'KeyMaterial' --output text > MyKey.pem

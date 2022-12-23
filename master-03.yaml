@@ -10,25 +10,27 @@ Parameters:
     Default: threepoints
 
   VpcCIDR:
-    Description: Please enter the IP range (CIDR notation) for this VPC
+    Description: Ip de vpc
     Type: String
     Default: 10.0.0.0/16
 
   PublicSubnet1CIDR:
-    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Description: CIDR de subnet publica
     Type: String
     Default: 10.0.0.0/24
 
   PrivateSubnet1CIDR:
-    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Description: CIDR de subnet privada
     Type: String
     Default: 10.0.2.0/23
 
+  keyName:
+    Description: nombre de llave
+    Type: String
+    Default: myKey
+
 
 Resources:
-
-
-
 
   VPC:
     Description: "VPC"
@@ -69,8 +71,8 @@ Resources:
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
 
-  PublicSubnet1:
-    Description: "PublicSubnet1"
+  PublicSubnet:
+    Description: "PublicSubnet"
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
@@ -82,8 +84,8 @@ Resources:
           Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
 
 
-  PrivateSubnet1:
-    Description: "PrivateSubnet1"
+  PrivateSubnet:
+    Description: "PrivateSubnet"
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
@@ -106,7 +108,7 @@ Resources:
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt NatGateway1EIP.AllocationId
-      SubnetId: !Ref PublicSubnet1
+      SubnetId: !Ref PublicSubnet
 
   PublicRouteTable:
     Description: "PublicRouteTable"
@@ -131,7 +133,7 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnet1
+      SubnetId: !Ref PublicSubnet
 
   PrivateRouteTable1:
     Description: "PrivateRouteTable1"
@@ -147,22 +149,40 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateRouteTable1
-      SubnetId: !Ref PrivateSubnet1
+      SubnetId: !Ref PrivateSubnet
 
   KeyPair:
     Type: AWS::EC2::KeyPair
     Properties:
-      KeyName: MyKey
+      KeyName: !Ref keyName
 
   ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      SubnetId: !Ref PublicSubnet1
+      SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
       ImageId: ami-0b5eea76982371e91
       InstanceType: t2.micro
       KeyName: !Ref KeyPair
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum -y install httpd php mysql php-mysql
+          
+          case $(ps -p 1 -o comm | tail -1) in
+          systemd) systemctl enable --now httpd ;;
+          init) chkconfig httpd on; service httpd start ;;
+          *) echo "Error starting httpd (OS not using init or systemd)." 2>&1
+          esac
+          
+          if [ ! -f /var/www/html/bootcamp-app.tar.gz ]; then
+          cd /var/www/html
+          wget https://s3.amazonaws.com/immersionday-labs/bootcamp-app.tar
+          tar xvf bootcamp-app.tar
+          chown apache:root /var/www/html/rds.conf.php
+          fi
+          yum -y update
 
 
 
